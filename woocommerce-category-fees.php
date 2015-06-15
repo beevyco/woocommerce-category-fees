@@ -93,9 +93,11 @@ class WC_Category_Fees {
 	private function hooks() {
 
 		// Add our form elements to category create/edit
+		add_action( 'product_cat_add_form_fields', array( $this, 'add_category_fields' ) );
 		add_action( 'product_cat_edit_form_fields', array( $this, 'edit_category_fields' ), 99 );
 
 		// Save the fields
+		add_action( 'created_term', array( $this, 'save_category_fields' ), 10, 3 );
 		add_action( 'edit_term'   , array( $this, 'save_category_fields' ), 10, 3 );
 
 		// Do the work
@@ -124,6 +126,149 @@ class WC_Category_Fees {
 	}
 
 	/**
+	 * Category thumbnail fields.
+	 *
+	 * @since 1.0
+	 */
+	public function add_category_fields() {
+		?>
+		<style>
+			#wc-catfees-fees-table { margin: 1em 0 0; }
+			#wc-catfees-fees-table .wc-cf-id { width: 45px; }
+			#wc-catfees-fees-table .wc-cf-remove { width: 65px; }
+			#wc-catfees-fees-table th { padding: 15px 10px; }
+			#wc-catfees-fees-table.widefat { width: 350px; }
+			.wc-catfees-meta-wrapper { margin-bottom: 5px; }
+			.wc-catfees-meta-wrapper label { display: inline; }
+		</style>
+		<div class="form-field">
+			<label for="fees_enabled"><?php _e( 'Apply Fees', 'wc-catfees' ); ?></label>
+			<select id="fees_enabled" name="fees_enabled" class="postform">
+				<option value=""><?php _e( 'No', 'wc-catfees' ); ?></option>
+				<option value="1"><?php _e( 'Yes', 'wc-catfees' ); ?></option>
+			</select>
+		</div>
+		<div class="wc-catfees-meta-wrapper" style="display: none;">
+			<label><?php _e( 'Fee Type', 'wc-catfees' ); ?></label><br />
+			<input type="radio" id="per_item" name="fee_type" value="per_item" ><label for="per_item"><?php _e( 'Per Item', 'wc-catfees' ); ?></label><br />
+			<input type="radio" id="flat_rate" name="fee_type" value="flat_rate" checked="checked" /><label for="flat_rate"><?php _e( 'Flat Rate', 'wc-catfees' ); ?></label>
+		</div>
+		<div class="wc-catfees-meta-wrapper" style="display: none;">
+			<label><?php _e( 'Fee is Taxable', 'wc-catfees' ); ?></label><br />
+			<input type="checkbox" id="fee_is_taxable" name="fee_is_taxable" value="1" /><label for="fee_is_taxable"><?php _e( 'Fee is Taxable', 'wc-catfees' ); ?></label>
+		</div>
+		<div class="wc-catfees-meta-wrapper" style="display: none;">
+			<label><?php _e( 'Fee Amount', 'wc-catfees' ); ?></label>
+			<table id="wc-catfees-fees-table" class="wp-list-table widefat fixed striped posts" cellspacing="0">
+				<thead>
+					<tr>
+						<th scope="col" class="manage-column wc-cf-id"><?php _e( 'Fee ID', 'wc-catfees' ); ?></th>
+						<th scope="col" class="manage-column"><?php _e( 'Amount', 'wc-catfees' ); ?></th>
+						<th scope="col" class="manage-column"><?php _e( 'Max Qty', 'wc-catfees' ); ?></th>
+						<th class="manage-column wc-cf-remove"></th>
+					</tr>
+				</thead>
+				<tfoot>
+					<tr>
+						<th scope="col" class="manage-column wc-cf-id"><?php _e( 'Fee ID', 'wc-catfees' ); ?></th>
+						<th scope="col" class="manage-column"><?php _e( 'Amount', 'wc-catfees' ); ?></th>
+						<th scope="col" class="manage-column"><?php _e( 'Max Quantity', 'wc-catfees' ); ?></th>
+						<th class="manage-column wc-cf-remove"></th>
+					</tr>
+				</tfoot>
+				<tbody id="wc-cf-fees">
+					<?php echo $this->render_fee_row( 0 ); ?>
+				</tbody>
+			</table>
+			<div class="clear"></div>
+			<p>
+				<span class="button-secondary" id="wc-cf-add-fee"><?php _e( 'Add Fee', 'wc-catfees' ); ?></span>
+			</p>
+			<p class="description">
+				<em><?php _e( 'To make a flat fee, create a single fee and set the max quantity value to 0', 'wc-catfees' ); ?></em>
+			</p>
+		</div>
+		<script type="text/javascript">
+			jQuery(document).ready(function ($) {
+
+				/**
+				 * Settings screen JS
+				 */
+				var WC_Category_Fees_Config = {
+
+					init : function() {
+						this.type();
+						this.fees();
+					},
+
+					type: function() {
+						$('#fees_enabled').on('change', function() {
+							var value = $(this).val() === '1' ? true : false;
+							if ( true === value ) {
+								$('.wc-catfees-meta-wrapper').show();
+							} else {
+								$('.wc-catfees-meta-wrapper').hide();
+							}
+						});
+					},
+
+					fees : function() {
+
+						$('#wc-cf-add-fee').on('click', function() {
+							var row = $('#wc-cf-fees tr:last');
+							var clone = row.clone();
+							var count = row.parent().find( 'tr' ).length;
+							clone.find( 'td input' ).val( '' );
+							clone.find( 'td input' ).each(function() {
+								var name = $( this ).attr( 'name' );
+								name = name.replace( /\[(\d+)\]/, '[' + parseInt( count ) + ']');
+								$( this ).attr( 'name', name ).attr( 'id', name );
+							});
+							clone.find('.fee-id').text(count);
+							clone.insertAfter( row );
+							return false;
+						});
+
+						$('body').on('click', '#wc-cf-fees .wc-cf-remove-fee', function() {
+							if( confirm( 'Remove this fee?' ) ) {
+								var count = $('#wc-cf-fees tr:visible').length;
+
+								if( count === 1 ) {
+									$('.wc-cf-fee-row' ).each(function() {
+										$(this).find( 'input' ).each(function() {
+											$(this).val('');
+										});
+									});
+								} else {
+									$(this).closest('tr').remove();
+
+									var rows  = 0;
+									$('.wc-cf-fee-row' ).each(function() {
+
+										$(this).find( 'input, select' ).each(function() {
+											var name = $( this ).attr( 'name' );
+											name = name.replace( /\[(\d+)\]/, '[' + parseInt( rows ) + ']');
+											$( this ).attr( 'name', name ).attr( 'id', name );
+										});
+										$(this).find('.fee-id').text( rows );
+
+										rows++;
+									});
+								}
+							}
+							return false;
+						});
+
+					},
+
+				}
+				WC_Category_Fees_Config.init();
+			});
+		</script>
+		<?php
+	}
+
+	/**
 	 * Edit category fee fields
 	 *
 	 * @since  1.0
@@ -134,6 +279,8 @@ class WC_Category_Fees {
 		$fees_enabled = get_woocommerce_term_meta( $term->term_id, 'fees_enabled', true );
 		$display      = $fees_enabled === '1' ? '' : ' style="display: none;"';
 		$fee_type     = get_woocommerce_term_meta( $term->term_id, 'fee_type', true );
+		$fee_tax      = get_woocommerce_term_meta( $term->term_id, 'fee_is_taxable', true );
+
 		if ( empty( $fee_type ) ) {
 			$fee_type = 'flat_rate';
 		}
@@ -144,7 +291,7 @@ class WC_Category_Fees {
 			#wc-catfees-fees-table .wc-cf-id { width: 45px; }
 			#wc-catfees-fees-table .wc-cf-remove { width: 65px; }
 			#wc-catfees-fees-table th { padding: 15px 10px; }
-			#wc-catfees-fees-table.widefat { width: 300px; }
+			#wc-catfees-fees-table.widefat { width: 350px; }
 		</style>
 		<tr class="form-field">
 			<th scope="row" valign="top"><label><?php _e( 'Apply Fee', 'wc-catfees' ); ?></label></th>
@@ -155,14 +302,20 @@ class WC_Category_Fees {
 				</select>
 			</td>
 		</tr>
-		<tr id="wc-catfees-type-wrapper" <?php echo $display; ?>>
+		<tr class="wc-catfees-meta-wrapper" <?php echo $display; ?>>
 			<th scope="row" valign="top"><label><?php _e( 'Fee Type', 'wc-catfees' ); ?></label></th>
 			<td>
 				<input type="radio" id="per_item" name="fee_type" value="per_item" <?php checked( 'per_item', $fee_type, true ); ?> /><label for="per_item"><?php _e( 'Per Item', 'wc-catfees' ); ?></label><br />
 				<input type="radio" id="flat_rate" name="fee_type" value="flat_rate" <?php checked( 'flat_rate', $fee_type, true ); ?> /><label for="flat_rate"><?php _e( 'Flat Rate', 'wc-catfees' ); ?></label>
 			</td>
 		</tr>
-		<tr id="wc-catfees-prices-wrapper" <?php echo $display; ?>>
+		<tr class="wc-catfees-meta-wrapper" <?php echo $display; ?>>
+			<th scope="row" valign="top"><label><?php _e( 'Is Taxable', 'wc-catfees' ); ?></label></th>
+			<td>
+				<input type="checkbox" id="fee_is_taxable" name="fee_is_taxable" value="1" <?php checked( '1', $fee_tax, true ); ?> /><label for="fee_is_taxable"><?php _e( 'Fee is Taxable', 'wc-catfees' ); ?></label>
+			</td>
+		</tr>
+		<tr class="wc-catfees-meta-wrapper" <?php echo $display; ?>>
 			<th scope="row" valign="top"><label><?php _e( 'Fee Amount', 'wc-catfees' ); ?></label></th>
 			<td>
 				<table id="wc-catfees-fees-table" class="wp-list-table widefat fixed striped posts" cellspacing="0">
@@ -216,8 +369,12 @@ class WC_Category_Fees {
 
 					type: function() {
 						$('#fees_enabled').on('change', function() {
-							$('#wc-catfees-type-wrapper').toggle();
-							$('#wc-catfees-prices-wrapper').toggle();
+							var value = $(this).val() === '1' ? true : false;
+							if ( true === value ) {
+								$('.wc-catfees-meta-wrapper').show();
+							} else {
+								$('.wc-catfees-meta-wrapper').hide();
+							}
 						});
 					},
 
@@ -342,6 +499,13 @@ class WC_Category_Fees {
 			update_woocommerce_term_meta( $term_id, 'fee_type', esc_attr( $_POST['fee_type'] ) );
 		}
 
+
+		if ( 'product_cat' === $taxonomy ) {
+			$is_taxable = isset( $_POST['fee_is_taxable'] ) ? '1' : '0';
+
+			update_woocommerce_term_meta( $term_id, 'fee_is_taxable', $is_taxable );
+		}
+
 		if ( isset( $_POST['term_fees'] ) && 'product_cat' === $taxonomy ) {
 			if ( is_array( $_POST['term_fees'] ) ) {
 				$term_fees = $_POST['term_fees'];
@@ -393,13 +557,16 @@ class WC_Category_Fees {
 						continue;
 					}
 
-					$fee_type = get_woocommerce_term_meta( $category->term_id, 'fee_type', true );
-					$fees     = get_woocommerce_term_meta( $category->term_id, 'term_fees', true );
+					$fee_type   = get_woocommerce_term_meta( $category->term_id, 'fee_type', true );
+					$fees       = get_woocommerce_term_meta( $category->term_id, 'term_fees', true );
+					$fee_tax    = get_woocommerce_term_meta( $category->term_id, 'fee_is_taxable', true );
+					$is_taxable = empty( $fee_tax ) ? false : true;
 
 					$fee_data[ $category->term_id ] = array(
-						'name'     => $category->name,
-						'fee_type' => $fee_type,
-						'fees'     => $fees,
+						'name'       => $category->name,
+						'fee_type'   => $fee_type,
+						'is_taxable' => $is_taxable,
+						'fees'       => $fees,
 					);
 
 					if ( empty( $fee_data[ $category->term_id ]['quantity'] ) ) {
@@ -435,7 +602,7 @@ class WC_Category_Fees {
 				$fee_amount = round( $fee_amount, 2 );
 
 				if ( $fee_amount > 0 ) {
-					$woocommerce->cart->add_fee( $fee_item['name'] . __( ' Fee', 'wc-catfees' ), $fee_amount, true, '' );
+					$woocommerce->cart->add_fee( $fee_item['name'] . __( ' Fee', 'wc-catfees' ), $fee_amount, $fee_item['is_taxable'], '' );
 				}
 
 			}
