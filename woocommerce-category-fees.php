@@ -431,6 +431,9 @@ class WC_Category_Fees {
 					$fee_amount = $fee_amount * $fee_item['quantity'];
 				}
 
+				// Round to avoid errors
+				$fee_amount = round( $fee_amount, 2 );
+
 				if ( $fee_amount > 0 ) {
 					$woocommerce->cart->add_fee( $fee_item['name'] . __( ' Fee', 'wc-catfees' ), $fee_amount, true, '' );
 				}
