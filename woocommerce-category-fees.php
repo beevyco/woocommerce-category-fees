@@ -101,9 +101,10 @@ class WC_Category_Fees {
 		// Do the work
 		add_action( 'woocommerce_cart_calculate_fees', array( $this, 'calculate_fees' ) );
 
-		add_action('admin_init' , array( $this, 'activate_license' ) );
-		add_action('admin_init' , array( $this, 'deactivate_license' ) );
-		add_action( 'admin_init', array( $this, 'plugin_updater' ), 0 );
+		add_action( 'admin_init' , array( $this, 'activate_license' ) );
+		add_action( 'admin_init' , array( $this, 'deactivate_license' ) );
+		add_action( 'admin_init' , array( $this, 'plugin_updater' ), 0 );
+		add_action( 'admin_init' , array( $this, 'register_license_key_setting' ), 99 );
 
 	}
 
@@ -461,7 +462,7 @@ class WC_Category_Fees {
 		if( isset( $_POST['edd_license_activate'] ) ) {
 
 			// run a quick security check
-		 	if( ! check_admin_referer( 'fs_license_nonce', 'wc_cat_fees_license' ) )
+		 	if( ! check_admin_referer( 'fs_license_nonce', 'wc_cat_fees_license_nonce' ) )
 				return; // get out if we didn't click the Activate button
 
 			// retrieve the license from the database
@@ -499,7 +500,7 @@ class WC_Category_Fees {
 		if( isset( $_POST['edd_license_deactivate'] ) ) {
 
 			// run a quick security check
-		 	if( ! check_admin_referer( 'fs_license_nonce', 'wc_cat_fees_license' ) )
+		 	if( ! check_admin_referer( 'fs_license_nonce', 'wc_cat_fees_license_nonce' ) )
 				return; // get out if we didn't click the Activate button
 
 			// retrieve the license from the database
@@ -546,6 +547,19 @@ class WC_Category_Fees {
 		);
 
 	}
+
+	function register_license_key_setting() {
+		register_setting( 'fs_license_helper', 'wc_cat_fees_license', array( $this, 'sanitize_license' ) );
+	}
+
+	public function sanitize_license( $new ) {
+		$old = get_option( 'wc_cat_fees_license' );
+		if( $old && $old != $new ) {
+			delete_option( 'wc_cat_fees_license' ); // new license has been entered, so must reactivate
+		}
+		return $new;
+	}
+
 
 }
 

@@ -20,7 +20,7 @@ class Filament_Studios_License_Helper {
 	}
 
 	private function hooks() {
-		add_action( 'admin_init', array( $this, 'register_settings' ) );
+		add_action( 'admin_init', array( $this, 'register_settings' ), 1 );
 		add_action( 'admin_menu', array( $this, 'register_settings_page' ) );
 	}
 
@@ -30,10 +30,6 @@ class Filament_Studios_License_Helper {
 
 	public function register_settings() {
 		add_settings_section( 'fs_license_helper', 'License Keys', array( $this, 'render_license_fields' ), 'fs-license-helper' );
-		$licenses = $this->get_license_ids();
-		foreach ( $licenses as $option => $name ) {
-			register_setting( 'fs_license_helper', $option, array( $this, 'sanitize_license' ) );
-		}
 	}
 
 	public function render_license() {
@@ -51,7 +47,6 @@ class Filament_Studios_License_Helper {
 	}
 
 	public function render_license_fields() {
-		settings_fields('fs_license_helper');
 		$registered_licenses = $this->get_license_ids();
 		foreach ( $registered_licenses as $id => $name ) {
 			$license = get_option( $id );
@@ -60,28 +55,23 @@ class Filament_Studios_License_Helper {
 			if( ! empty( $license ) ) {
 				if( $status !== false && $status == 'valid' ) { ?>
 					<span style="color:green;"><?php _e('active'); ?></span>
-					<?php wp_nonce_field( 'fs_license_nonce', $id ); ?>
+					<?php wp_nonce_field( 'fs_license_nonce', $id . '_nonce' ); ?>
 					<input type="submit" class="button-secondary" name="edd_license_deactivate" value="<?php _e('Deactivate License'); ?>"/>
 				<?php } else {
-					wp_nonce_field( 'fs_license_nonce', $id ); ?>
+					wp_nonce_field( 'fs_license_nonce', $id . '_nonce' ); ?>
 					<input type="submit" class="button-secondary" name="edd_license_activate" value="<?php _e('Activate License'); ?>"/>
 				<?php }
 			}
 		}
+
+		settings_fields( 'fs_license_helper' );
+
 	}
 
 	private function get_license_ids() {
 		$licenses = apply_filters( 'fs_lh_licenses', array() );
 
 		return $licenses;
-	}
-
-	public function sanitize_license( $new ) {
-		$old = get_option( 'edd_sample_license_key' );
-		if( $old && $old != $new ) {
-			delete_option( 'edd_sample_license_status' ); // new license has been entered, so must reactivate
-		}
-		return $new;
 	}
 
 }
