@@ -3,7 +3,7 @@
  * Plugin Name: WooCommerce - Category Fees
  * Plugin URI:  https://filament-studios.com/downloads/woocommerce-category-fees
  * Description: Add Fees to the cart based off the categories of the items purchased
- * Version:     0.1
+ * Version:     1.0
  * Author:      Filament Studios
  * Author URI:  https://filament-studios.com
  * License:     GPL-2.0+
@@ -66,7 +66,7 @@ class WC_Category_Fees {
 	private function setup_constants() {
 		// Plugin version
 		if ( ! defined( 'WC_CATFEES_VER' ) ) {
-			define( 'WC_CATFEES_VER', '0.1' );
+			define( 'WC_CATFEES_VER', '1.0' );
 		}
 
 		// Plugin path
@@ -546,7 +546,7 @@ class WC_Category_Fees {
 
 		foreach ( $woocommerce->cart->cart_contents as $cart_item ) {
 
-			$item_categories = get_the_terms( $cart_item['product_id'], 'product_cat' );
+			$item_categories = apply_filters( 'wc_cat_fees_item_categores', get_the_terms( $cart_item['product_id'], 'product_cat' ), $cart_item );
 
 			if ( ! empty( $item_categories ) ) {
 
@@ -563,6 +563,7 @@ class WC_Category_Fees {
 					$is_taxable = empty( $fee_tax ) ? false : true;
 
 					$fee_data[ $category->term_id ] = array(
+						'cat_id'     => $category->term_id,
 						'name'       => $category->name,
 						'fee_type'   => $fee_type,
 						'is_taxable' => $is_taxable,
@@ -599,7 +600,7 @@ class WC_Category_Fees {
 				}
 
 				// Round to avoid errors
-				$fee_amount = round( $fee_amount, 2 );
+				$fee_amount = apply_filters( 'wc_cat_fees_amount', round( $fee_amount, 2 ), $fee_item );
 
 				if ( $fee_amount > 0 ) {
 					$woocommerce->cart->add_fee( $fee_item['name'] . __( ' Fee', 'wc-catfees' ), $fee_amount, $fee_item['is_taxable'], '' );
