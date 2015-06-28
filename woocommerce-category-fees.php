@@ -9,21 +9,6 @@
  * License:     GPL-2.0+
  */
 
-// this is the URL our updater / license checker pings. This should be the URL of the site with EDD installed
-define( 'WC_CATFEES_STORE_URL', 'https://filament-studios.com' ); // you should use your own CONSTANT name, and be sure to replace it throughout this file
-
-// the name of your product. This should match the download name in EDD exactly
-define( 'WC_CATFEES_ITEM_NAME', 'WooCommerce Category Fees' ); // you should use your own CONSTANT name, and be sure to replace it throughout this file
-
-if ( ! class_exists( 'Filament_Studios_License_Helper' ) ) {
-	include( dirname( __FILE__) . '/includes/FS_License_Helper.php' );
-}
-
-if( !class_exists( 'EDD_SL_Plugin_Updater' ) ) {
-	// load our custom updater
-	include( dirname( __FILE__ ) . '/includes/EDD_SL_Plugin_Updater.php' );
-}
-
 if ( ! class_exists( 'WC_Category_Fees' ) ) {
 
 class WC_Category_Fees {
@@ -39,7 +24,6 @@ class WC_Category_Fees {
 
 		$this->setup_constants();
 		$this->hooks();
-		$this->filters();
 
 	}
 
@@ -103,26 +87,6 @@ class WC_Category_Fees {
 		// Do the work
 		add_action( 'woocommerce_cart_calculate_fees', array( $this, 'calculate_fees' ) );
 
-		add_action( 'admin_init' , array( $this, 'activate_license' ) );
-		add_action( 'admin_init' , array( $this, 'deactivate_license' ) );
-		add_action( 'admin_init' , array( $this, 'plugin_updater' ), 0 );
-		add_action( 'admin_init' , array( $this, 'register_license_key_setting' ), 99 );
-
-	}
-
-	/**
-	 * Register into the licensing system
-	 *
-	 * @since  1.0
-	 */
-	private function filters() {
-		add_filter( 'fs_lh_licenses', array( $this, 'register_license' ), 10, 1 );
-	}
-
-	public function register_license( $licenses ) {
-		$licenses['wc_cat_fees_license'] = __( 'WooCommerce - Category Fees', 'wc-catfees' );;
-
-		return $licenses;
 	}
 
 	/**
@@ -625,112 +589,6 @@ class WC_Category_Fees {
 
 		return false;
 	}
-
-
-	public function activate_license() {
-
-		// listen for our activate button to be clicked
-		if( isset( $_POST['edd_license_activate'] ) ) {
-
-			// run a quick security check
-		 	if( ! check_admin_referer( 'fs_license_nonce', 'wc_cat_fees_license_nonce' ) )
-				return; // get out if we didn't click the Activate button
-
-			// retrieve the license from the database
-			$license = trim( get_option( 'wc_cat_fees_license' ) );
-
-
-			// data to send in our API request
-			$api_params = array(
-				'edd_action' => 'activate_license',
-				'license'    => $license,
-				'item_name'  => urlencode( WC_CATFEES_ITEM_NAME ), // the name of our product in EDD
-				'url'        => home_url()
-			);
-
-			// Call the custom API.
-			$response = wp_remote_post( WC_CATFEES_STORE_URL, array( 'timeout' => 15, 'sslverify' => false, 'body' => $api_params ) );
-
-			// make sure the response came back okay
-			if ( is_wp_error( $response ) )
-				return false;
-
-			// decode the license data
-			$license_data = json_decode( wp_remote_retrieve_body( $response ) );
-
-			// $license_data->license will be either "valid" or "invalid"
-
-			update_option( 'wc_cat_fees_license_status', $license_data->license );
-
-		}
-	}
-
-	public function deactivate_license() {
-
-		// listen for our activate button to be clicked
-		if( isset( $_POST['edd_license_deactivate'] ) ) {
-
-			// run a quick security check
-		 	if( ! check_admin_referer( 'fs_license_nonce', 'wc_cat_fees_license_nonce' ) )
-				return; // get out if we didn't click the Activate button
-
-			// retrieve the license from the database
-			$license = trim( get_option( 'wc_cat_fees_license' ) );
-
-
-			// data to send in our API request
-			$api_params = array(
-				'edd_action' => 'deactivate_license',
-				'license'    => $license,
-				'item_name'  => urlencode( WC_CATFEES_ITEM_NAME ), // the name of our product in EDD
-				'url'        => home_url()
-			);
-
-			// Call the custom API.
-			$response = wp_remote_post( WC_CATFEES_STORE_URL, array( 'timeout' => 15, 'sslverify' => false, 'body' => $api_params ) );
-
-			// make sure the response came back okay
-			if ( is_wp_error( $response ) )
-				return false;
-
-			// decode the license data
-			$license_data = json_decode( wp_remote_retrieve_body( $response ) );
-
-			// $license_data->license will be either "deactivated" or "failed"
-			if( $license_data->license == 'deactivated' )
-				delete_option( 'wc_cat_fees_license_status' );
-
-		}
-	}
-
-	function plugin_updater() {
-
-		// retrieve our license key from the DB
-		$license_key = trim( get_option( 'wc_cat_fees_license' ) );
-
-		// setup the updater
-		$edd_updater = new EDD_SL_Plugin_Updater( WC_CATFEES_STORE_URL, __FILE__, array(
-				'version'   => WC_CATFEES_VER,
-				'license'   => $license_key,
-				'item_name' => WC_CATFEES_ITEM_NAME,
-				'author'    => 'Filament Studios'
-			)
-		);
-
-	}
-
-	function register_license_key_setting() {
-		register_setting( 'fs_license_helper', 'wc_cat_fees_license', array( $this, 'sanitize_license' ) );
-	}
-
-	public function sanitize_license( $new ) {
-		$old = get_option( 'wc_cat_fees_license' );
-		if( $old && $old != $new ) {
-			delete_option( 'wc_cat_fees_license' ); // new license has been entered, so must reactivate
-		}
-		return $new;
-	}
-
 
 }
 
