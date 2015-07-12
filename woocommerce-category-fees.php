@@ -542,7 +542,9 @@ class WC_Category_Fees {
 	 */
 	public function calculate_fees() {
 		global $woocommerce;
-		$fee_data = array();
+
+		$category_fees_enabled = array();
+		$fee_data              = array();
 
 		foreach ( $woocommerce->cart->cart_contents as $cart_item ) {
 
@@ -552,23 +554,29 @@ class WC_Category_Fees {
 
 				foreach ( $item_categories as $category ) {
 
-					$fees_enabled = get_woocommerce_term_meta( $category->term_id, 'fees_enabled', true );
-					if ( empty( $fees_enabled ) ) {
+					if ( ! array_key_exists( $category->term_id, $category_fees_enabled ) ) {
+						$fees_enabled = get_woocommerce_term_meta( $category->term_id, 'fees_enabled', true );
+						$category_fees_enabled[ $category->term_id ] = ! empty( $fees_enabled ) ? true : false;
+					}
+
+					if ( empty( $category_fees_enabled[ $category->term_id ] ) ) {
 						continue;
 					}
 
-					$fee_type   = get_woocommerce_term_meta( $category->term_id, 'fee_type', true );
-					$fees       = get_woocommerce_term_meta( $category->term_id, 'term_fees', true );
-					$fee_tax    = get_woocommerce_term_meta( $category->term_id, 'fee_is_taxable', true );
-					$is_taxable = empty( $fee_tax ) ? false : true;
+					if ( ! isset( $fee_data[ $category->term_id ] ) ) {
+						$fee_type   = get_woocommerce_term_meta( $category->term_id, 'fee_type', true );
+						$fees       = get_woocommerce_term_meta( $category->term_id, 'term_fees', true );
+						$fee_tax    = get_woocommerce_term_meta( $category->term_id, 'fee_is_taxable', true );
+						$is_taxable = empty( $fee_tax ) ? false : true;
 
-					$fee_data[ $category->term_id ] = array(
-						'cat_id'     => $category->term_id,
-						'name'       => $category->name,
-						'fee_type'   => $fee_type,
-						'is_taxable' => $is_taxable,
-						'fees'       => $fees,
-					);
+						$fee_data[ $category->term_id ] = array(
+							'cat_id'     => $category->term_id,
+							'name'       => $category->name,
+							'fee_type'   => $fee_type,
+							'is_taxable' => $is_taxable,
+							'fees'       => $fees,
+						);
+					}
 
 					if ( empty( $fee_data[ $category->term_id ]['quantity'] ) ) {
 						$fee_data[ $category->term_id ]['quantity'] = $cart_item['quantity'];
