@@ -3,7 +3,7 @@
  * Plugin Name: WooCommerce - Category Fees
  * Plugin URI:  https://filament-studios.com/downloads/woocommerce-category-fees
  * Description: Add Fees to the cart based off the categories of the items purchased
- * Version:     1.1
+ * Version:     1.1.1
  * Author:      Filament Studios
  * Author URI:  https://filament-studios.com
  * License:     GPL-2.0+
@@ -66,7 +66,7 @@ class WC_Category_Fees {
 	private function setup_constants() {
 		// Plugin version
 		if ( ! defined( 'WC_CATFEES_VER' ) ) {
-			define( 'WC_CATFEES_VER', '1.1' );
+			define( 'WC_CATFEES_VER', '1.1.1' );
 		}
 
 		// Plugin path
@@ -156,6 +156,11 @@ class WC_Category_Fees {
 		<div class="wc-catfees-meta-wrapper" style="display: none;">
 			<label><?php _e( 'Fee is Taxable', 'wc-catfees' ); ?></label><br />
 			<input type="checkbox" id="fee_is_taxable" name="fee_is_taxable" value="1" /><label for="fee_is_taxable"><?php _e( 'Fee is Taxable', 'wc-catfees' ); ?></label>
+		</div>
+		<div class="wc-catfees-meta-wrapper" style="display: none;">
+			<label><?php _e( 'Custom Name', 'wc-catfees' ); ?></label><br />
+			<input type="text" id="custom-name" name="custom_name" value="" placeholder="Custom Fee Name" />
+			<label for="custom-name"><?php sprintf( __( 'If left blank "%s Fee" will be used on the cart entry.', 'wc-catfees' ), 'CategoryName' ); ?></label>
 		</div>
 		<div class="wc-catfees-meta-wrapper" style="display: none;">
 			<label><?php _e( 'Fee Amount', 'wc-catfees' ); ?></label>
@@ -280,6 +285,8 @@ class WC_Category_Fees {
 		$display      = $fees_enabled === '1' ? '' : ' style="display: none;"';
 		$fee_type     = get_woocommerce_term_meta( $term->term_id, 'fee_type', true );
 		$fee_tax      = get_woocommerce_term_meta( $term->term_id, 'fee_is_taxable', true );
+		$custom_name  = get_woocommerce_term_meta( $term->term_id, 'custom_fee_name', true );
+
 
 		if ( empty( $fee_type ) ) {
 			$fee_type = 'flat_rate';
@@ -313,6 +320,13 @@ class WC_Category_Fees {
 			<th scope="row" valign="top"><label><?php _e( 'Is Taxable', 'wc-catfees' ); ?></label></th>
 			<td>
 				<input type="checkbox" id="fee_is_taxable" name="fee_is_taxable" value="1" <?php checked( '1', $fee_tax, true ); ?> /><label for="fee_is_taxable"><?php _e( 'Fee is Taxable', 'wc-catfees' ); ?></label>
+			</td>
+		</tr>
+		<tr class="wc-catfees-meta-wrapper" <?php echo $display; ?>>
+			<th scope="row" valign="top"><label><?php _e( 'Custom Fee Name', 'wc-catfees' ); ?></label></th>
+			<td>
+				<input type="text" id="custom-name" name="custom_name" value="<?php echo $custom_name; ?>" placeholder="Custom Fee Name" />
+				<label for="custom-name"><?php printf( __( 'If left blank "%s Fee" will be used on the cart entry.', 'wc-catfees' ), $term->name ); ?></label>
 			</td>
 		</tr>
 		<tr class="wc-catfees-meta-wrapper" <?php echo $display; ?>>
@@ -476,7 +490,7 @@ class WC_Category_Fees {
 				?>
 			</td>
 			<td>
-				<input class="small-text" placeholder="0" type="number" step="1" min="0" name="term_fees[<?php echo $index; ?>][max_quantity]" value="<?php echo $fee['max_quantity']; ?>" />
+				<input class="small-text" placeholder="0" type="number" step="1" min="0" name="term_fees[<?php echo $index; ?>][max_quantity]" value="<?php echo ! empty( $fee['max_quantity'] ) ? $fee['max_quantity'] : 0; ?>" />
 			</td>
 			<td><span class="wc-cf-remove-fee button-secondary"><?php _e( 'Remove', 'wc-catfees' ); ?></span></td>
 		</tr>
@@ -532,6 +546,11 @@ class WC_Category_Fees {
 				update_woocommerce_term_meta( $term_id, 'term_fees', $sorted_fees );
 			}
 		}
+
+		if ( isset( $_POST['custom_name'] ) && 'product_cat' === $taxonomy ) {
+			$custom_fee_name = sanitize_text_field( trim( $_POST['custom_name'] ) );
+			update_woocommerce_term_meta( $term_id, 'custom_fee_name', $custom_fee_name );
+		}
 	}
 
 	/**
@@ -564,17 +583,19 @@ class WC_Category_Fees {
 					}
 
 					if ( ! isset( $fee_data[ $category->term_id ] ) ) {
-						$fee_type   = get_woocommerce_term_meta( $category->term_id, 'fee_type', true );
-						$fees       = get_woocommerce_term_meta( $category->term_id, 'term_fees', true );
-						$fee_tax    = get_woocommerce_term_meta( $category->term_id, 'fee_is_taxable', true );
-						$is_taxable = empty( $fee_tax ) ? false : true;
+						$fee_type    = get_woocommerce_term_meta( $category->term_id, 'fee_type', true );
+						$fees        = get_woocommerce_term_meta( $category->term_id, 'term_fees', true );
+						$fee_tax     = get_woocommerce_term_meta( $category->term_id, 'fee_is_taxable', true );
+						$custom_name = get_woocommerce_term_meta( $category->term_id, 'custom_fee_name', true );
+						$is_taxable  = empty( $fee_tax ) ? false : true;
 
 						$fee_data[ $category->term_id ] = array(
-							'cat_id'     => $category->term_id,
-							'name'       => $category->name,
-							'fee_type'   => $fee_type,
-							'is_taxable' => $is_taxable,
-							'fees'       => $fees,
+							'cat_id'        => $category->term_id,
+							'name'          => $category->name,
+							'display_name'  => ! empty( $custom_name ) ? $custom_name : sprintf( __( '%s Fee', 'wc-catfees' ), $category->name ),
+							'fee_type'      => $fee_type,
+							'is_taxable'    => $is_taxable,
+							'fees'          => $fees,
 						);
 					}
 
@@ -611,7 +632,7 @@ class WC_Category_Fees {
 				$fee_amount = apply_filters( 'wc_cat_fees_amount', round( $fee_amount, 2 ), $fee_item );
 
 				if ( $fee_amount > 0 ) {
-					$woocommerce->cart->add_fee( $fee_item['name'] . __( ' Fee', 'wc-catfees' ), $fee_amount, $fee_item['is_taxable'], '' );
+					$woocommerce->cart->add_fee( $fee_item['display_name'], $fee_amount, $fee_item['is_taxable'], '' );
 				}
 
 			}
