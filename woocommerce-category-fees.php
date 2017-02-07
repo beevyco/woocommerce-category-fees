@@ -608,6 +608,9 @@ class WC_Category_Fees {
 			}
 		}
 
+		$display_names = wp_list_pluck( $fee_data, 'display_name' );
+		$display_names = array_count_values( $display_names );
+
 		if ( ! empty( $fee_data ) ) {
 
 			foreach ( $fee_data as $fee_item ) {
@@ -631,8 +634,14 @@ class WC_Category_Fees {
 				// Round to avoid errors
 				$fee_amount = apply_filters( 'wc_cat_fees_amount', round( $fee_amount, 2 ), $fee_item );
 
+				if ( isset( $display_names[ $fee_item['display_name'] ] ) && $display_names[ $fee_item['display_name'] ] > 1 ) {
+					$display_name = $fee_item['display_name'] . ' (' . $fee_item['name'] . ')';
+				} else {
+					$display_name = $fee_item['display_name'];
+				}
+
 				if ( $fee_amount > 0 ) {
-					$woocommerce->cart->add_fee( $fee_item['display_name'], $fee_amount, $fee_item['is_taxable'], '' );
+					$woocommerce->cart->add_fee( $display_name, $fee_amount, $fee_item['is_taxable'], '' );
 				}
 
 			}
