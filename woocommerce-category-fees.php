@@ -3,7 +3,7 @@
  * Plugin Name: WooCommerce - Category Fees
  * Plugin URI:  https://filament-studios.com/downloads/woocommerce-category-fees
  * Description: Add Fees to the cart based off the categories of the items purchased
- * Version:     1.1.1
+ * Version:     1.1.2
  * Author:      Filament Studios
  * Author URI:  https://filament-studios.com
  * License:     GPL-2.0+
@@ -66,7 +66,7 @@ class WC_Category_Fees {
 	private function setup_constants() {
 		// Plugin version
 		if ( ! defined( 'WC_CATFEES_VER' ) ) {
-			define( 'WC_CATFEES_VER', '1.1.1' );
+			define( 'WC_CATFEES_VER', '1.1.2' );
 		}
 
 		// Plugin path
