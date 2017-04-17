@@ -631,12 +631,12 @@ class WC_Category_Fees {
 				$fee_amount = 0.00;
 				if ( $this->is_single_rate_fee( $fee_item['fees'] ) && $fee_item['quantity'] > 0 ) {
 					$fee_amount     = $fee_item['fees'][0]['amount'];
-					$fee_percentage = $fee_item['fees'][0]['percentage'];
+					$fee_percentage = isset( $fee_item['fees'][0]['percentage'] ) ? $fee_item['fees'][0]['percentage'] : 0 ;
 				} else {
 					foreach ( $fee_item['fees'] as $index => $fee ) {
 						if ( $fee_item['quantity'] <= $fee['max_quantity'] ) {
 							$fee_amount     = $fee['amount'];
-							$fee_percentage = $fee['percentage'];
+							$fee_percentage = isset( $fee['percentage'] ) ? $fee['percentage'] : 0;
 							break;
 						}
 					}
