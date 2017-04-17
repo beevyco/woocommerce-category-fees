@@ -190,7 +190,8 @@ class WC_Category_Fees {
 				<span class="button-secondary" id="wc-cf-add-fee"><?php _e( 'Add Fee', 'wc-catfees' ); ?></span>
 			</p>
 			<p class="description">
-				<em><?php _e( 'To charge a single fee for any quantity, create a fee entry and set the max quantity value to 0', 'wc-catfees' ); ?></em>
+				<em><?php _e( 'To charge a single fee for any quantity, create a fee entry and set the max quantity value to 0', 'wc-catfees' ); ?></em><br />
+				<em><?php _e( 'Fee percentages are based on the total value of the items in the cart belonging to this category.', 'wc-catfees' ); ?></em>
 			</p>
 		</div>
 		<script type="text/javascript">
@@ -364,7 +365,8 @@ class WC_Category_Fees {
 					<span class="button-secondary" id="wc-cf-add-fee"><?php _e( 'Add Fee', 'wc-catfees' ); ?></span>
 				</p>
 				<p class="description">
-					<em><?php _e( 'To charge a single fee for any quantity, create a fee entry and set the max quantity value to 0', 'wc-catfees' ); ?></em>
+					<em><?php _e( 'To charge a single fee for any quantity, create a fee entry and set the max quantity value to 0', 'wc-catfees' ); ?></em><br />
+					<em><?php _e( 'Fee percentages are based on the total value of the items in the cart belonging to this category.', 'wc-catfees' ); ?></em>
 				</p>
 			</td>
 		</tr>
