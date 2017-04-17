@@ -281,17 +281,17 @@ class WC_Category_Fees {
 	 */
 	public function edit_category_fields( $term ) {
 
-		$fees_enabled = get_woocommerce_term_meta( $term->term_id, 'fees_enabled', true );
+		$fees_enabled = get_term_meta( $term->term_id, 'fees_enabled', true );
 		$display      = $fees_enabled === '1' ? '' : ' style="display: none;"';
-		$fee_type     = get_woocommerce_term_meta( $term->term_id, 'fee_type', true );
-		$fee_tax      = get_woocommerce_term_meta( $term->term_id, 'fee_is_taxable', true );
-		$custom_name  = get_woocommerce_term_meta( $term->term_id, 'custom_fee_name', true );
+		$fee_type     = get_term_meta( $term->term_id, 'fee_type', true );
+		$fee_tax      = get_term_meta( $term->term_id, 'fee_is_taxable', true );
+		$custom_name  = get_term_meta( $term->term_id, 'custom_fee_name', true );
 
 
 		if ( empty( $fee_type ) ) {
 			$fee_type = 'flat_rate';
 		}
-		$fees         = get_woocommerce_term_meta( $term->term_id, 'term_fees', true );
+		$fees         = get_term_meta( $term->term_id, 'term_fees', true );
 		?>
 		<style>
 			#wc-catfees-fees-table { margin: 1em 0 0; }
@@ -463,6 +463,7 @@ class WC_Category_Fees {
 
 		$default_options = array(
 			'amount'       => 0.00,
+			'percentage'   => 0,
 			'quantity_max' => 0,
 		);
 
@@ -488,6 +489,8 @@ class WC_Category_Fees {
 					echo $currency_symbol;
 				}
 				?>
+				&plus;
+				<input class="small-text" placeholder="0.00" type="number" step="0.01" min="0.00" name="term_fees[<?php echo $index; ?>][percentage]" value="<?php echo $fee['percentage']; ?>" />%
 			</td>
 			<td>
 				<input class="small-text" placeholder="0" type="number" step="1" min="0" name="term_fees[<?php echo $index; ?>][max_quantity]" value="<?php echo ! empty( $fee['max_quantity'] ) ? $fee['max_quantity'] : 0; ?>" />
@@ -506,28 +509,29 @@ class WC_Category_Fees {
 	 */
 	public function save_category_fields( $term_id, $tt_id = '', $taxonomy = '' ) {
 		if ( isset( $_POST['fees_enabled'] ) && 'product_cat' === $taxonomy ) {
-			update_woocommerce_term_meta( $term_id, 'fees_enabled', esc_attr( $_POST['fees_enabled'] ) );
+			update_term_meta( $term_id, 'fees_enabled', esc_attr( $_POST['fees_enabled'] ) );
 		}
 
 		if ( isset( $_POST['fee_type'] ) && 'product_cat' === $taxonomy ) {
-			update_woocommerce_term_meta( $term_id, 'fee_type', esc_attr( $_POST['fee_type'] ) );
+			update_term_meta( $term_id, 'fee_type', esc_attr( $_POST['fee_type'] ) );
 		}
 
 
 		if ( 'product_cat' === $taxonomy ) {
 			$is_taxable = isset( $_POST['fee_is_taxable'] ) ? '1' : '0';
 
-			update_woocommerce_term_meta( $term_id, 'fee_is_taxable', $is_taxable );
+			update_term_meta( $term_id, 'fee_is_taxable', $is_taxable );
 		}
 
 		if ( isset( $_POST['term_fees'] ) && 'product_cat' === $taxonomy ) {
 			if ( is_array( $_POST['term_fees'] ) ) {
 				$term_fees = $_POST['term_fees'];
 				foreach ( $term_fees as $index => $term_fee ) {
-					if ( empty( $term_fee['amount'] ) ) {
+					if ( empty( $term_fee['amount'] ) && empty( $term_fee['percentage'] ) ) {
 						unset( $term_fees[ $index ] );
 					} else {
 						$term_fees[ $index ]['amount']       = round( (float) $term_fees[ $index ]['amount'], 2 );
+						$term_fees[ $index ]['percentage']   = round( (float) $term_fees[ $index ]['percentage'], 2 );
 						$term_fees[ $index ]['max_quantity'] = intval( $term_fees[ $index ]['max_quantity'] );
 						$term_fees[ $index ]['index']        = intval( $index ); // Set here so we can use listpluck to sort
 					}
@@ -539,17 +543,18 @@ class WC_Category_Fees {
 				foreach ( $max_quantities as $index => $max_quantity ) {
 					$sorted_fees[] = array(
 						'amount'       => $term_fees[ $index ]['amount'],
+						'percentage'   => $term_fees[ $index ]['percentage'],
 						'max_quantity' => $term_fees[ $index ]['max_quantity'],
 					);
 				}
 
-				update_woocommerce_term_meta( $term_id, 'term_fees', $sorted_fees );
+				update_term_meta( $term_id, 'term_fees', $sorted_fees );
 			}
 		}
 
 		if ( isset( $_POST['custom_name'] ) && 'product_cat' === $taxonomy ) {
 			$custom_fee_name = sanitize_text_field( trim( $_POST['custom_name'] ) );
-			update_woocommerce_term_meta( $term_id, 'custom_fee_name', $custom_fee_name );
+			update_term_meta( $term_id, 'custom_fee_name', $custom_fee_name );
 		}
 	}
 
@@ -567,14 +572,14 @@ class WC_Category_Fees {
 
 		foreach ( $woocommerce->cart->cart_contents as $cart_item ) {
 
-			$item_categories = apply_filters( 'wc_cat_fees_item_categores', get_the_terms( $cart_item['product_id'], 'product_cat' ), $cart_item );
+			$item_categories = apply_filters( 'wc_cat_fees_item_categories', get_the_terms( $cart_item['product_id'], 'product_cat' ), $cart_item );
 
 			if ( ! empty( $item_categories ) ) {
 
 				foreach ( $item_categories as $category ) {
 
 					if ( ! array_key_exists( $category->term_id, $category_fees_enabled ) ) {
-						$fees_enabled = get_woocommerce_term_meta( $category->term_id, 'fees_enabled', true );
+						$fees_enabled = get_term_meta( $category->term_id, 'fees_enabled', true );
 						$category_fees_enabled[ $category->term_id ] = ! empty( $fees_enabled ) ? true : false;
 					}
 
@@ -583,10 +588,10 @@ class WC_Category_Fees {
 					}
 
 					if ( ! isset( $fee_data[ $category->term_id ] ) ) {
-						$fee_type    = get_woocommerce_term_meta( $category->term_id, 'fee_type', true );
-						$fees        = get_woocommerce_term_meta( $category->term_id, 'term_fees', true );
-						$fee_tax     = get_woocommerce_term_meta( $category->term_id, 'fee_is_taxable', true );
-						$custom_name = get_woocommerce_term_meta( $category->term_id, 'custom_fee_name', true );
+						$fee_type    = get_term_meta( $category->term_id, 'fee_type', true );
+						$fees        = get_term_meta( $category->term_id, 'term_fees', true );
+						$fee_tax     = get_term_meta( $category->term_id, 'fee_is_taxable', true );
+						$custom_name = get_term_meta( $category->term_id, 'custom_fee_name', true );
 						$is_taxable  = empty( $fee_tax ) ? false : true;
 
 						$fee_data[ $category->term_id ] = array(
@@ -604,6 +609,12 @@ class WC_Category_Fees {
 					} else {
 						$fee_data[ $category->term_id ]['quantity'] += $cart_item['quantity'];
 					}
+
+					if ( empty( $fee_data[ $category->term_id ]['items_total'] ) ) {
+						$fee_data[ $category->term_id ]['items_total'] = $cart_item['line_total'];
+					} else {
+						$fee_data[ $category->term_id ]['items_total'] += $cart_item['line_total'];
+					}
 				}
 			}
 		}
@@ -617,11 +628,13 @@ class WC_Category_Fees {
 
 				$fee_amount = 0.00;
 				if ( $this->is_single_rate_fee( $fee_item['fees'] ) && $fee_item['quantity'] > 0 ) {
-					$fee_amount = $fee_item['fees'][0]['amount'];
+					$fee_amount     = $fee_item['fees'][0]['amount'];
+					$fee_percentage = $fee_item['fees'][0]['percentage'];
 				} else {
 					foreach ( $fee_item['fees'] as $index => $fee ) {
 						if ( $fee_item['quantity'] <= $fee['max_quantity'] ) {
-							$fee_amount = $fee['amount'];
+							$fee_amount     = $fee['amount'];
+							$fee_percentage = $fee['percentage'];
 							break;
 						}
 					}
@@ -629,6 +642,10 @@ class WC_Category_Fees {
 
 				if ( $fee_item['fee_type'] == 'per_item') {
 					$fee_amount = $fee_amount * $fee_item['quantity'];
+				}
+
+				if ( ! empty( $fee_percentage ) ) {
+					$fee_amount += $fee_item['items_total'] * ( $fee_percentage / 100 );
 				}
 
 				// Round to avoid errors
